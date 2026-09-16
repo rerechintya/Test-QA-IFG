@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<TestCaseEntity>
+   <description></description>
+   <name>TC01_Memvalidasi reponse create user</name>
+   <tag></tag>
+   <comment></comment>
+   <recordOption>OTHER</recordOption>
+   <testCaseGuid>dcb9fb2e-022a-4402-a78b-c00c10f060ef</testCaseGuid>
+</TestCaseEntity>
