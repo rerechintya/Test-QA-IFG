@@ -1,9 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<TestCaseEntity>
-   <description></description>
-   <name>TC02_KAFKA batch customer</name>
-   <tag></tag>
-   <comment></comment>
-   <recordOption>OTHER</recordOption>
-   <testCaseGuid>0cabe269-0e7d-460f-bf3e-ada07ae92f92</testCaseGuid>
-</TestCaseEntity>
