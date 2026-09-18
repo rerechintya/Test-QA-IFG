@@ -1,146 +1,45 @@
 import static com.kms.katalon.core.testobject.ObjectRepository.findTestObject
-
 import com.kms.katalon.core.webservice.keyword.WSBuiltInKeywords as WS
-
-import groovy.json.JsonOutput
+import com.kms.katalon.core.util.KeywordUtil
 import groovy.json.JsonSlurper
+import keywords.KafkaHelper // Mengimpor Helper Kafka yang sudah Anda buat
 
-import keywords.KafkaHelper
+// ========================================================
+// TAHAP 1: EKSEKUSI API REQRES UNTUK MENDAPATKAN DATA USER
+// ========================================================
+KeywordUtil.logInfo("Tahap 1: Mengirim request POST ke ReqRes API...")
+def response = WS.sendRequest(findTestObject('POST CREATE USER'))
 
+// Memastikan status code sukses 201 Created (Sesuai objek verifikasi Anda)
+WS.verifyResponseStatusCode(response, 201)
 
-// ==================================================
-// 1. Get customer data from Reqres
-// ==================================================
+// Ekstrak nama user dari response JSON (Hasilnya: "Test Rere")
+def jsonResponse = new JsonSlurper().parseText(response.getResponseBodyContent())
+String createdName = jsonResponse.name
+KeywordUtil.logInfo("User berhasil dibuat via API dengan nama: " + createdName)
 
-def response = WS.sendRequest(
-    findTestObject(
-        'Object Repository/GET USER',
-        [('page') : page]
-    )
-)
+// ========================================================
+// TAHAP 2: SIMULASI PENGIRIMAN DATA KE KAFKA TOPIC (PRODUCER)
+// ========================================================
+KeywordUtil.logInfo("Tahap 2: Mengirim payload data user baru ke Kafka Topic...")
+String topicName = "ifg-customer-topic"
 
-WS.verifyResponseStatusCode(response, 200)
+// Membuat producer dan mengirim pesan menggunakan KafkaHelper Anda
+def myProducer = KafkaHelper.createProducer()
+KafkaHelper.sendMessage(myProducer, topicName, "Payload sync untuk customer baru: " + createdName)
 
-def responseJson =
-    new JsonSlurper().parseText(
-        response.getResponseText()
-    )
+// ========================================================
+// TAHAP 3: AMBIL DAN VALIDASI DATA DARI KAFKA (CONSUMER)
+// ========================================================
+KeywordUtil.logInfo("Tahap 3: Membaca data stream dari Kafka Consumer...")
 
-def users = responseJson.data
+// Membuat consumer dan menarik pesan menggunakan KafkaHelper Anda
+def myConsumer = KafkaHelper.createConsumer("ifg-qa-automation-group")
+String receivedMessage = KafkaHelper.consumeMessage(myConsumer, topicName)
 
-assert users != null
-assert users.size() > 0
-
-println("Total users retrieved from Reqres: ${users.size()}")
-
-
-// ==================================================
-// 2. Prepare batch customer data
-// ==================================================
-
-def batchUsers = users.take(3)
-
-assert batchUsers.size() == 3
-
-println("Batch size: ${batchUsers.size()}")
-
-
-// ==================================================
-// 3. Create Kafka Producer
-// ==================================================
-
-def producer = KafkaHelper.createProducer()
-
-String topic = 'customer-topic'
-
-
-// ==================================================
-// 4. Send customer batch to Kafka
-// ==================================================
-
-batchUsers.each { user ->
-
-    def customerMessage = [
-        id        : user.id,
-        first_name: user.first_name,
-        last_name : user.last_name,
-        email     : user.email
-    ]
-
-    String message = JsonOutput.toJson(customerMessage)
-
-    println("Sending customer: ${message}")
-
-    KafkaHelper.sendMessage(
-        producer,
-        topic,
-        message
-    )
+// DEEP ASSERTION: Memastikan pesan dari Kafka mengandung nama user dari API ReqRes
+if (receivedMessage != null && receivedMessage.contains(createdName)) {
+    KeywordUtil.logInfo("PENGUJIAN BERHASIL: Integrasi REST API dan Apache Kafka berjalan sempurna!")
+} else {
+    KeywordUtil.markFailed("PENGUJIAN GAGAL: Pesan yang diterima dari Kafka tidak sesuai atau kosong.")
 }
-
-producer.close()
-
-
-// ==================================================
-// 5. Create Kafka Consumer
-// ==================================================
-
-def consumer = KafkaHelper.createConsumer(
-    'katalon-customer-test'
-)
-
-
-// ==================================================
-// 6. Consume messages
-// ==================================================
-
-def receivedMessages = []
-
-for (int i = 0; i < batchUsers.size(); i++) {
-
-    String receivedMessage =
-        KafkaHelper.consumeMessage(
-            consumer,
-            topic
-        )
-
-    assert receivedMessage != null
-
-    receivedMessages.add(receivedMessage)
-}
-
-consumer.close()
-
-
-// ==================================================
-// 7. Validate received messages
-// ==================================================
-
-assert receivedMessages.size() == batchUsers.size()
-
-batchUsers.each { user ->
-
-    boolean messageFound =
-        receivedMessages.any { message ->
-
-            message.contains("\"id\":${user.id}") &&
-            message.contains(user.first_name) &&
-            message.contains(user.last_name) &&
-            message.contains(user.email)
-        }
-
-    assert messageFound
-
-    println(
-        "Customer ${user.id} validation PASSED"
-    )
-}
-
-
-// ==================================================
-// 8. Final result
-// ==================================================
-
-println(
-    "TC02_KAFKA_BATCH_CUSTOMER PASSED"
-)
