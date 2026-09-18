@@ -17,7 +17,7 @@
       <guid>85783df6-a4f1-4090-81e1-1283281d925c</guid>
       <isReuseDriver>false</isReuseDriver>
       <isRun>true</isRun>
-      <testCaseId>Test Cases/TC01_Memvalidasi reponse create user</testCaseId>
+      <testCaseId>Test Cases/TC01_Validasi create user</testCaseId>
       <usingDataBindingAtTestSuiteLevel>false</usingDataBindingAtTestSuiteLevel>
    </testCaseLink>
    <testCaseLink>
